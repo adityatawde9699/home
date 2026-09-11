@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  BLOCKED
+}
+
+enum PricingModel {
+  HOURLY
+  FIXED_SERVICE
+  HALF_DAY
+  FULL_DAY
+}
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  PROVIDER_ON_THE_WAY
+  ARRIVED
+  JOB_STARTED
+  JOB_COMPLETED
+  CUSTOMER_CONFIRMED
+  COMPLETED
+  CANCELLED
+  REJECTED
+  EXPIRED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PAYMENT_CREATED
+  PAYMENT_PENDING
+  PAYMENT_AUTHORIZED
+  PAYMENT_CAPTURED
+  PAYMENT_FAILED
+  REFUND_PENDING
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model User {
+  id         String   @id @default(uuid())
+  phone      String   @unique
+  email      String?  @unique
+  role       Role
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  customer   Customer?
+  provider   Provider?
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  bookings  Booking[]
+}
+
+model Provider {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Provider Specific Data
+  status    ProviderStatus @default(PENDING)
+  
+  // KYC details
+  idProofType   String?  // e.g., "AADHAAR", "PAN"
+  idProofNumber String?
+  idProofUrl    String?  // Link to S3/Firebase storage
+  
+  // Location details (for MVP storing standard float, can upgrade to PostGIS later)
+  latitude  Float?
+  longitude Float?
+  
+  services  ProviderService[]
+  bookings  Booking[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  services    Service[]
+}
+
+model Service {
+  id            String   @id @default(uuid())
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  name          String
+  description   String?
+  pricingModel  PricingModel
+  basePricePaise Int
+  
+  providers     ProviderService[]
+  bookings      Booking[]
+}
+
+model ProviderService {
+  id          String   @id @default(uuid())
+  providerId  String
+  serviceId   String
+  provider    Provider @relation(fields: [providerId], references: [id])
+  service     Service  @relation(fields: [serviceId], references: [id])
+  
+  @@unique([providerId, serviceId])
+}
+
+model Booking {
+  id               String   @id @default(uuid())
+  customerId       String
+  providerId       String
+  serviceId        String
+  
+  customer         Customer @relation(fields: [customerId], references: [id])
+  provider         Provider @relation(fields: [providerId], references: [id])
+  service          Service  @relation(fields: [serviceId], references: [id])
+  
+  status           BookingStatus @default(REQUESTED)
+  scheduledAt      DateTime
+  totalAmountPaise Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  payment          Payment?
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  bookingId     String   @unique
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+  
+  gatewayRef    String?  @unique
+  status        PaymentStatus @default(PAYMENT_CREATED)
+  amountPaise   Int
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

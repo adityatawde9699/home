@@ -1,0 +1,22 @@
+{
+  "name": "home-services-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Home Services Marketplace Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "backend"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev --workspace=apps/admin_web",
+    "dev:customer": "npm run dev --workspace=apps/customer_web -- -p 3002",
+    "dev:backend": "npm run start:dev --workspace=backend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:admin\" \"npm run dev:customer\"",
+    "db:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "db:down": "docker compose -f infrastructure/docker/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
